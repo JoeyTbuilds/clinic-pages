@@ -1,29 +1,21 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { createAdminSupabaseClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { Plus, FileText, Coins, TrendingUp, ArrowRight } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
+// DEMO MODE: Hardcoded until Supabase is connected
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions)
-  const supabase = createAdminSupabaseClient()
-
-  const [{ data: user }, { data: pages }] = await Promise.all([
-    supabase.from('users').select('*').eq('email', session!.user.email).single(),
-    supabase.from('pages').select('*').eq('user_id', session!.user.id).order('created_at', { ascending: false }).limit(5),
-  ])
-
-  const pageCount = pages?.length || 0
-  const credits = user?.credits || 0
-  const plan = user?.plan || 'free'
+  const pageCount = 0
+  const credits = 99
+  const plan = 'demo'
+  // eslint-disable-next-line
+  const pages: any[] = []
 
   return (
     <div className="max-w-5xl">
       {/* Welcome */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white mb-1">
-          Good to have you back{session?.user.name ? `, ${session.user.name.split(' ')[0]}` : ''} 👋
+          Good to have you back 👋
         </h1>
         <p className="text-gray-500">Build landing pages that convert browsers into patients.</p>
       </div>

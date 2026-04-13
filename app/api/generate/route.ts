@@ -1,54 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { generatePageContent, generateAIReviews } from '@/lib/ai'
-import { createAdminSupabaseClient } from '@/lib/supabase'
+
+// DEMO MODE: Auth + Supabase bypassed until connected
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   try {
     const body = await req.json()
     const { 
       treatmentName, treatmentCategory, description, benefits, procedureSteps,
       duration, recovery, anesthesia, startingPrice,
-      languages, includeAIReviews, pageId
+      languages, includeAIReviews, clinicName
     } = body
-
-    const supabase = createAdminSupabaseClient()
-    
-    // Check credits
-    const { data: user } = await supabase
-      .from('users')
-      .select('credits')
-      .eq('email', session.user.email)
-      .single()
-
-    const creditsNeeded = languages.length + (includeAIReviews ? 1 : 0)
-    
-    if (!user || user.credits < creditsNeeded) {
-      return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
-    }
-
-    // Get brand settings
-    const { data: brand } = await supabase
-      .from('brand_settings')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .single()
-
-    // Update page status to generating
-    if (pageId) {
-      await supabase.from('pages').update({ status: 'generating' }).eq('id', pageId)
-    }
 
     const results: Record<string, unknown> = {}
     
     // Generate content for each language
-    for (const lang of languages as Array<'en' | 'de'>) {
+    for (const lang of (languages || ['en']) as Array<'en' | 'de'>) {
       const content = await generatePageContent({
         treatmentName,
         treatmentCategory,
@@ -59,7 +26,7 @@ export async function POST(req: NextRequest) {
         recovery,
         anesthesia,
         startingPrice,
-        clinicName: brand?.clinic_name || session.user.name || 'Clinic',
+        clinicName: clinicName || 'Demo Clinic',
         language: lang,
       })
       results[lang] = content
@@ -70,39 +37,74 @@ export async function POST(req: NextRequest) {
     if (includeAIReviews) {
       aiReviews = await generateAIReviews(
         treatmentName,
-        brand?.clinic_name || 'Clinic',
-        languages[0] as 'en' | 'de',
+        clinicName || 'Demo Clinic',
+        (languages?.[0] || 'en') as 'en' | 'de',
         5
       )
-    }
-
-    // Deduct credits
-    await supabase
-      .from('users')
-      .update({ credits: user.credits - creditsNeeded, updated_at: new Date().toISOString() })
-      .eq('email', session.user.email)
-
-    // Update page with generated content
-    if (pageId) {
-      await supabase.from('pages').update({
-        status: 'ready',
-        content_json: { ...results, aiReviews },
-        credits_used: creditsNeeded,
-        updated_at: new Date().toISOString(),
-      }).eq('id', pageId)
     }
 
     return NextResponse.json({ 
       success: true, 
       content: results,
       aiReviews,
-      creditsUsed: creditsNeeded,
+      creditsUsed: 0, // Demo mode: free
     })
 
   } catch (error) {
     console.error('Generate error:', error)
     return NextResponse.json(
       { error: 'Generation failed', details: String(error) },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { prompt, currentContent, language } = body
+
+    if (!prompt || !currentContent) {
+      return NextResponse.json({ error: 'Missing prompt or content' }, { status: 400 })
+    }
+
+    const lang = language || 'en'
+    const existing = currentContent[lang]
+    if (!existing) {
+      return NextResponse.json({ error: 'No content for this language' }, { status: 400 })
+    }
+
+    // Use Claude to modify the existing content based on the prompt
+    const Anthropic = (await import('@anthropic-ai/sdk')).default
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [{
+        role: 'user',
+        content: `You are editing an existing aesthetic clinic landing page. Here is the current content as JSON:
+
+${JSON.stringify(existing, null, 2)}
+
+The clinic wants this change: "${prompt}"
+
+Apply the requested change to the content. Keep the same JSON structure. Only modify what's needed for the request. Return ONLY the updated JSON, no commentary.`
+      }],
+    })
+
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const jsonText = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim()
+    const updated = JSON.parse(jsonText)
+
+    return NextResponse.json({
+      success: true,
+      content: { [lang]: updated },
+    })
+  } catch (error) {
+    console.error('Customize error:', error)
+    return NextResponse.json(
+      { error: 'Customization failed', details: String(error) },
       { status: 500 }
     )
   }

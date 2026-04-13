@@ -1,19 +1,11 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { createAdminSupabaseClient } from '@/lib/supabase'
 import Link from 'next/link'
-import { Plus, ExternalLink, FileText, Calendar } from 'lucide-react'
+import { Plus, FileText, ExternalLink, Calendar } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
+// DEMO MODE: No Supabase
 export default async function PagesPage() {
-  const session = await getServerSession(authOptions)
-  const supabase = createAdminSupabaseClient()
-
-  const { data: pages } = await supabase
-    .from('pages')
-    .select('*')
-    .eq('user_id', session!.user.id)
-    .order('created_at', { ascending: false })
+  // eslint-disable-next-line
+  const pages: any[] = []
 
   const categoryEmoji: Record<string, string> = {
     Face: '😊', Body: '💪', Intimate: '💙', Skin: '✨', Hair: '💇', Dental: '🦷', Eye: '👁️', Other: '🏥',
