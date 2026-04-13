@@ -23,13 +23,16 @@ export default function Step5Preview({ data, onUpdate, onPrev }: Props) {
 
   const content = data.generatedContent?.[lang]
   
+  const clinicName = data.clinicName?.trim() || 'Your Clinic'
+  const primaryColor = data.primaryColor || '#e50036'
+
   // Generate preview HTML
   const previewHtml = content ? generateHTML({
     content: content as Parameters<typeof generateHTML>[0]['content'],
     input: {
       treatmentName: data.treatmentName,
       treatmentCategory: data.treatmentCategory,
-      clinicName: 'Your Clinic',
+      clinicName,
       language: lang,
       startingPrice: data.startingPrice,
       anesthesia: data.anesthesia,
@@ -39,10 +42,11 @@ export default function Step5Preview({ data, onUpdate, onPrev }: Props) {
     theme,
     language: lang,
     brand: {
-      clinicName: 'Your Clinic',
-      primaryColor: '#2563eb',
-      secondaryColor: '#7c3aed',
-      accentColor: '#10b981',
+      clinicName,
+      logoUrl: data.logoUrl,
+      primaryColor,
+      secondaryColor: primaryColor,
+      accentColor: primaryColor,
     },
     reviews: [
       ...(data.reviews.map(r => ({ ...r, treatment: data.treatmentName }))),

@@ -10,7 +10,7 @@ import Step5Preview from './Step5Preview'
 import { cn } from '@/lib/utils'
 
 export type WizardData = {
-  // Step 1: Treatment
+  // Step 1: Treatment + Brand
   treatmentName: string
   treatmentCategory: string
   description: string
@@ -21,6 +21,10 @@ export type WizardData = {
   anesthesia: string
   startingPrice: string
   priceBreakdown: Array<{ label: string; price: number; type: 'addon' | 'package' }>
+  clinicName: string
+  primaryColor: string
+  logoUrl?: string
+  doctorName?: string
   
   // Step 2: Content
   beforeAfterPhotos: Array<{ beforeFile?: File; afterFile?: File; beforeUrl?: string; afterUrl?: string; label: string; timeframe: string }>
@@ -70,6 +74,10 @@ const defaultData: WizardData = {
   anesthesia: 'Local',
   startingPrice: '',
   priceBreakdown: [],
+  clinicName: '',
+  primaryColor: '#e50036',
+  logoUrl: undefined,
+  doctorName: undefined,
   beforeAfterPhotos: [],
   reviews: [],
   generateAIReviews: false,

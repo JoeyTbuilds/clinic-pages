@@ -6,6 +6,10 @@ import type { WizardData } from './PageBuilderWizard'
 const CATEGORIES = ['Face', 'Body', 'Intimate', 'Skin', 'Hair', 'Dental', 'Eye', 'Other']
 const ANESTHESIA = ['Local', 'General', 'Twilight sedation', 'None required', 'Local + sedation']
 
+const BRAND_COLOR_PRESETS = [
+  '#e50036', '#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0891b2', '#000000',
+]
+
 interface Props {
   data: WizardData
   onUpdate: (updates: Partial<WizardData>) => void
@@ -29,13 +33,78 @@ export default function Step1Treatment({ data, onUpdate, onNext }: Props) {
   }
   const removeStep = (i: number) => onUpdate({ procedureSteps: data.procedureSteps.filter((_, idx) => idx !== i) })
 
-  const canContinue = data.treatmentName.trim().length > 0
+  const canContinue = data.treatmentName.trim().length > 0 && data.clinicName.trim().length > 0
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-white mb-1">Treatment Details</h2>
         <p className="text-gray-500 text-sm">The more detail you provide, the better the generated copy.</p>
+      </div>
+
+      {/* Brand section */}
+      <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-4">
+        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Clinic Brand</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-300">Clinic Name <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              value={data.clinicName}
+              onChange={e => onUpdate({ clinicName: e.target.value })}
+              placeholder="e.g. Dr. Kish Aesthetic Center"
+              className="w-full bg-white/[0.05] border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 placeholder-gray-600"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-300">Doctor Name <span className="text-gray-600">(optional)</span></label>
+            <input
+              type="text"
+              value={data.doctorName || ''}
+              onChange={e => onUpdate({ doctorName: e.target.value })}
+              placeholder="e.g. Dr. Alexander Kish"
+              className="w-full bg-white/[0.05] border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 placeholder-gray-600"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-300">Primary Brand Color</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={data.primaryColor}
+                onChange={e => onUpdate({ primaryColor: e.target.value })}
+                className="w-10 h-10 rounded-lg cursor-pointer border border-white/10 bg-transparent p-0.5"
+              />
+              <div className="flex gap-1.5 flex-wrap">
+                {BRAND_COLOR_PRESETS.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => onUpdate({ primaryColor: color })}
+                    className="w-6 h-6 rounded-full border-2 transition-all"
+                    style={{
+                      backgroundColor: color,
+                      borderColor: data.primaryColor === color ? '#fff' : 'transparent',
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-gray-500 font-mono">{data.primaryColor}</span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-300">Logo URL <span className="text-gray-600">(optional)</span></label>
+            <input
+              type="text"
+              value={data.logoUrl || ''}
+              onChange={e => onUpdate({ logoUrl: e.target.value || undefined })}
+              placeholder="https://your-clinic.com/logo.png"
+              className="w-full bg-white/[0.05] border border-white/10 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500/50 placeholder-gray-600"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Treatment name */}

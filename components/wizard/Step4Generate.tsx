@@ -116,7 +116,7 @@ export default function Step4Generate({ data, onUpdate, onNext, onPrev }: Props)
           startingPrice: data.startingPrice,
           languages: data.languages,
           includeAIReviews: data.generateAIReviews,
-          clinicName: 'Demo Clinic',
+          clinicName: data.clinicName || 'Demo Clinic',
         }),
       })
 
