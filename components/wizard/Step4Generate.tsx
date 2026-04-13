@@ -100,7 +100,7 @@ export default function Step4Generate({ data, onUpdate, onNext, onPrev }: Props)
       setProgress(40)
       setProgressMsg(STEPS_MESSAGES[2])
       
-      // Generate content
+      // Generate content via SSE stream (prevents timeout)
       const genRes = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,19 +116,49 @@ export default function Step4Generate({ data, onUpdate, onNext, onPrev }: Props)
           startingPrice: data.startingPrice,
           languages: data.languages,
           includeAIReviews: data.generateAIReviews,
-          pageId,
+          clinicName: 'Demo Clinic',
         }),
       })
-      
-      setProgress(80)
-      setProgressMsg(STEPS_MESSAGES[4])
-      
+
       if (!genRes.ok) {
-        const { error } = await genRes.json()
-        throw new Error(error || 'Generation failed')
+        throw new Error(`Server error: ${genRes.status}`)
       }
-      
-      const { content, aiReviews } = await genRes.json()
+
+      // Parse SSE stream
+      const reader = genRes.body!.getReader()
+      const decoder = new TextDecoder()
+      let content: Record<string, unknown> = {}
+      let aiReviews = null
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+            if (event.type === 'progress') {
+              setProgressMsg(event.message || 'Generating...')
+              if (event.progress) setProgress(event.progress)
+            } else if (event.type === 'done') {
+              content = event.content
+              aiReviews = event.aiReviews
+            } else if (event.type === 'error') {
+              throw new Error(event.error || 'Generation failed')
+            }
+          } catch (parseErr) {
+            // Skip malformed SSE events
+            if (parseErr instanceof Error && parseErr.message !== 'Generation failed') continue
+            throw parseErr
+          }
+        }
+      }
       
       setProgress(95)
       setProgressMsg(STEPS_MESSAGES[5])

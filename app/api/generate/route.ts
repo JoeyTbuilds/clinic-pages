@@ -1,55 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generatePageContent, generateAIReviews } from '@/lib/ai'
 
-// DEMO MODE: Auth + Supabase bypassed until connected
+export const maxDuration = 60 // Vercel/Netlify hint
 
+// Use streaming to prevent timeout on Netlify
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { 
+    const {
       treatmentName, treatmentCategory, description, benefits, procedureSteps,
       duration, recovery, anesthesia, startingPrice,
       languages, includeAIReviews, clinicName
     } = body
 
-    const results: Record<string, unknown> = {}
-    
-    // Generate content for each language
-    for (const lang of (languages || ['en']) as Array<'en' | 'de'>) {
-      const content = await generatePageContent({
-        treatmentName,
-        treatmentCategory,
-        description,
-        benefits,
-        procedureSteps,
-        duration,
-        recovery,
-        anesthesia,
-        startingPrice,
-        clinicName: clinicName || 'Demo Clinic',
-        language: lang,
-      })
-      results[lang] = content
-    }
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          const send = (data: Record<string, unknown>) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+          }
 
-    // Generate AI reviews if requested
-    let aiReviews = null
-    if (includeAIReviews) {
-      aiReviews = await generateAIReviews(
-        treatmentName,
-        clinicName || 'Demo Clinic',
-        (languages?.[0] || 'en') as 'en' | 'de',
-        5
-      )
-    }
+          send({ type: 'progress', step: 'starting', message: 'Analyzing treatment data...' })
 
-    return NextResponse.json({ 
-      success: true, 
-      content: results,
-      aiReviews,
-      creditsUsed: 0, // Demo mode: free
+          const results: Record<string, unknown> = {}
+          const langs = (languages || ['en']) as Array<'en' | 'de'>
+
+          for (let i = 0; i < langs.length; i++) {
+            const lang = langs[i]
+            send({ type: 'progress', step: 'generating', message: `Generating ${lang.toUpperCase()} content...`, progress: Math.round((i / (langs.length + 1)) * 100) })
+
+            const content = await generatePageContent({
+              treatmentName,
+              treatmentCategory,
+              description,
+              benefits,
+              procedureSteps,
+              duration,
+              recovery,
+              anesthesia,
+              startingPrice,
+              clinicName: clinicName || 'Demo Clinic',
+              language: lang,
+            })
+            results[lang] = content
+          }
+
+          let aiReviews = null
+          if (includeAIReviews) {
+            send({ type: 'progress', step: 'reviews', message: 'Generating reviews...', progress: 85 })
+            aiReviews = await generateAIReviews(
+              treatmentName,
+              clinicName || 'Demo Clinic',
+              (languages?.[0] || 'en') as 'en' | 'de',
+              5
+            )
+          }
+
+          send({
+            type: 'done',
+            success: true,
+            content: results,
+            aiReviews,
+            creditsUsed: 0,
+          })
+
+          controller.close()
+        } catch (err) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: String(err) })}\n\n`))
+          controller.close()
+        }
+      }
     })
 
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
   } catch (error) {
     console.error('Generate error:', error)
     return NextResponse.json(
@@ -74,7 +104,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'No content for this language' }, { status: 400 })
     }
 
-    // Use Claude to modify the existing content based on the prompt
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -83,13 +112,7 @@ export async function PATCH(req: NextRequest) {
       max_tokens: 4096,
       messages: [{
         role: 'user',
-        content: `You are editing an existing aesthetic clinic landing page. Here is the current content as JSON:
-
-${JSON.stringify(existing, null, 2)}
-
-The clinic wants this change: "${prompt}"
-
-Apply the requested change to the content. Keep the same JSON structure. Only modify what's needed for the request. Return ONLY the updated JSON, no commentary.`
+        content: `You are editing an existing aesthetic clinic landing page. Here is the current content as JSON:\n\n${JSON.stringify(existing, null, 2)}\n\nThe clinic wants this change: "${prompt}"\n\nApply the requested change to the content. Keep the same JSON structure. Only modify what's needed for the request. Return ONLY the updated JSON, no commentary.`
       }],
     })
 
