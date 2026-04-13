@@ -20,6 +20,7 @@ export interface PageBuildConfig {
   reviews?: Array<{ name: string; rating: number; text: string; treatment: string; isAI?: boolean }>
   beforeAfterPhotos?: Array<{ beforeUrl: string; afterUrl: string; label: string; timeframe: string }>
   doctorPhotoUrl?: string
+  heroImageUrl?: string
   ctaUrl?: string
   pricingOptions?: Array<{ label: string; price: number; type: 'addon' | 'package' }>
 }
@@ -1098,7 +1099,7 @@ export function generateHTML(config: PageBuildConfig): string {
 <!-- ═══════════════════════════════════════════════════════ -->
 <section id="cp-hero">
   <div class="cp-hero-bg"></div>
-  <div class="cp-hero-bg-img" id="cp-hero-bg-img" style="background-image:url('')"></div>
+  <div class="cp-hero-bg-img" id="cp-hero-bg-img" style="background-image:url('${config.heroImageUrl || ''}')"></div>
   <div class="cp-container">
     <div class="cp-hero-content">
       <div class="cp-hero-badge">✦ ${brand.clinicName}</div>

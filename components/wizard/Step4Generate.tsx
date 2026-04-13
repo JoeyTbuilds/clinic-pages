@@ -149,6 +149,10 @@ export default function Step4Generate({ data, onUpdate, onNext, onPrev }: Props)
             } else if (event.type === 'done') {
               content = event.content
               aiReviews = event.aiReviews
+              // Store generated images
+              if (event.images) {
+                onUpdate({ generatedImages: event.images })
+              }
             } else if (event.type === 'error') {
               throw new Error(event.error || 'Generation failed')
             }

@@ -53,6 +53,10 @@ export type WizardData = {
   pageId?: string
   generatedContent?: Record<string, unknown>
   aiReviews?: Array<{ name: string; rating: number; text: string; treatment: string }>
+  generatedImages?: {
+    hero: string | null
+    beforeAfter: Array<{ before: string; after: string; label: string }>
+  }
 }
 
 const STEPS = [

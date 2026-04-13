@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generatePageContent, generateAIReviews } from '@/lib/ai'
+import { generatePageImages } from '@/lib/images'
 
-export const maxDuration = 60 // Vercel/Netlify hint
+export const maxDuration = 300 // Allow longer for image generation
 
 // Use streaming to prevent timeout on Netlify
 export async function POST(req: NextRequest) {
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 
           let aiReviews = null
           if (includeAIReviews) {
-            send({ type: 'progress', step: 'reviews', message: 'Generating reviews...', progress: 85 })
+            send({ type: 'progress', step: 'reviews', message: 'Generating reviews...', progress: 60 })
             aiReviews = await generateAIReviews(
               treatmentName,
               clinicName || 'Demo Clinic',
@@ -57,11 +58,26 @@ export async function POST(req: NextRequest) {
             )
           }
 
+          // Generate images via Gemini
+          send({ type: 'progress', step: 'images', message: 'Generating hero image...', progress: 70 })
+          let images = { hero: null as string | null, beforeAfter: [] as Array<{before: string, after: string, label: string}> }
+          try {
+            const heroResult = await generatePageImages(treatmentName, treatmentCategory || 'Body')
+            images = heroResult
+            if (images.hero) {
+              send({ type: 'progress', step: 'images', message: `Hero image done. Generating before/after photos...`, progress: 85 })
+            }
+          } catch (imgErr) {
+            console.error('Image generation error:', imgErr)
+            send({ type: 'progress', step: 'images', message: 'Image generation skipped (will use placeholders)', progress: 90 })
+          }
+
           send({
             type: 'done',
             success: true,
             content: results,
             aiReviews,
+            images,
             creditsUsed: 0,
           })
 

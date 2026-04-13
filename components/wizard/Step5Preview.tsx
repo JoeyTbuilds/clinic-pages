@@ -52,12 +52,23 @@ export default function Step5Preview({ data, onUpdate, onPrev }: Props) {
       ...(data.reviews.map(r => ({ ...r, treatment: data.treatmentName }))),
       ...(data.aiReviews || []).map(r => ({ ...r, isAI: true })),
     ],
-    beforeAfterPhotos: data.beforeAfterPhotos.filter(p => p.beforeUrl && p.afterUrl).map(p => ({
-      beforeUrl: p.beforeUrl!,
-      afterUrl: p.afterUrl!,
-      label: p.label,
-      timeframe: p.timeframe,
-    })),
+    beforeAfterPhotos: [
+      // User-uploaded photos first
+      ...data.beforeAfterPhotos.filter(p => p.beforeUrl && p.afterUrl).map(p => ({
+        beforeUrl: p.beforeUrl!,
+        afterUrl: p.afterUrl!,
+        label: p.label,
+        timeframe: p.timeframe,
+      })),
+      // Then AI-generated photos
+      ...(data.generatedImages?.beforeAfter || []).map((pair, i) => ({
+        beforeUrl: pair.before,
+        afterUrl: pair.after,
+        label: pair.label || `Patient ${i + 1}`,
+        timeframe: '3 months',
+      })),
+    ],
+    heroImageUrl: data.generatedImages?.hero || undefined,
     doctorPhotoUrl: data.doctorPhotoUrl,
     ctaUrl: data.ctaUrl,
     pricingOptions: data.priceBreakdown,
